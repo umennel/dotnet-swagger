@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.OpenApi.Models;
 using TodoList.DataAccess;
 
 namespace TodoList
@@ -31,6 +32,25 @@ namespace TodoList
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 options.IncludeXmlComments(xmlPath);
+                options.SwaggerDoc(
+                    "v1",
+                    new OpenApiInfo
+                    {
+                        Version = "v1",
+                        Title = "ToDo List API",
+                        Description = "A simple ToDo list management API",
+                        Contact = new OpenApiContact
+                        {
+                            Name = "Uche Mennel",
+                            Email = string.Empty,
+                            Url = new Uri("https://github.com/umennel"),
+                        },
+                        License = new OpenApiLicense
+                        {
+                            Name = "Use under GPL",
+                            Url = new Uri("https://www.gnu.org/licenses/gpl-3.0.en.html"),
+                        }
+                    });
             });
 
             services.AddControllers();
@@ -52,7 +72,7 @@ namespace TodoList
             // specifying the Swagger JSON endpoint.
             app.UseSwaggerUI(options =>
             {
-                options.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoList API v1");
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo List API v1");
                 options.RoutePrefix = string.Empty;
             });
 

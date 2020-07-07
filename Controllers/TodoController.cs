@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -11,7 +12,8 @@ using TodoList.DataAccess;
 
 namespace TodoApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
+    [Produces("application/json")]
     [ApiController]
     public class TodoController : ControllerBase
     {
@@ -20,39 +22,59 @@ namespace TodoApi.Controllers
         public TodoController(TodoContext context)
         {
             _context = context;
-
-            if (_context.TodoItems.Count() == 0)
-            {
-                // Create a new TodoItem if collection is empty,
-                // which means you can't delete all TodoItems.
-                _context.TodoItems.Add(new TodoItem { Name = "Item1" });
-                _context.SaveChanges();
-            }
         }
 
-        // GET: api/Todo
+        /// <summary>
+        /// Gets all ToDo Items.
+        /// </summary>
+        /// <returns>The list of ToDo Item</returns>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TodoItem>>> GetTodoItems()
         {
             return await _context.TodoItems.ToListAsync();
         }
 
-        // GET: api/Todo/5
+        /// <summary>
+        /// Gets a specific ToDo Item.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns>The Item to get</returns>
+        /// <response code="404">If the item does not exist</response>
         [HttpGet("{id}")]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<TodoItem>> GetTodoItem(int id)
         {
-            var todoItem = await _context.TodoItems.FindAsync(id);
+            var item = await _context.TodoItems.FindAsync(id);
 
-            if (todoItem == null)
+            if (item == null)
             {
                 return NotFound();
             }
 
-            return todoItem;
+            return item;
         }
 
-        // POST: api/Todo
+        /// <summary>
+        /// Creates a ToDo Item.
+        /// </summary>
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     POST api/v1/Todo
+        ///     {
+        ///        "id": 1,
+        ///        "name": "Walk the dog",
+        ///        "isComplete": false
+        ///     }
+        ///
+        /// </remarks>
+        /// <param name="item"></param>
+        /// <returns>A newly created ToDo Item</returns>
+        /// <response code="201">Returns the newly created item</response>
+        /// <response code="409">If the item already exists</response>
         [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<ActionResult<TodoItem>> PostTodoItem(TodoItem item)
         {
             try {
@@ -67,8 +89,28 @@ namespace TodoApi.Controllers
             return CreatedAtAction(nameof(GetTodoItem), new { id = item.Id }, item);
         }
 
-        // PUT: api/Todo/5
+        /// <summary>
+        /// Updates a ToDo Item.
+        /// </summary>
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     PUT api/v1/Todo/1
+        ///     {
+        ///        "id": 1,
+        ///        "name": "Walk the dog",
+        ///        "isComplete": true
+        ///     }
+        ///
+        /// </remarks>
+        /// <param name="id"></param>
+        /// <param name="item"></param>
+        /// <returns>No content</returns>
+        /// <response code="204">If the update was successful</response>
+        /// <response code="400">If the ID does not match</response>
         [HttpPut("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateTodoItem(int id, TodoItem item)
         {
             if (id != item.Id)
@@ -82,8 +124,26 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        // PATCH: api/Todo/5
+        /// <summary>
+        /// Partially updates a ToDo Item.
+        /// </summary>
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     PATCH api/v1/Todo/1
+        ///     {
+        ///        "isComplete": true
+        ///     }
+        ///
+        /// </remarks>
+        /// <param name="id"></param>
+        /// <param name="updates"></param>
+        /// <returns>No content</returns>
+        /// <response code="204">If the update was successful</response>
         [HttpPatch("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateTodoItem(int id, Dictionary<string, object> updates)
         {
             var normalizedUpdates = new Dictionary<string, JsonElement?>(updates.Select(kvp => KeyValuePair.Create(kvp.Key.ToLower(), (JsonElement?)kvp.Value)));
@@ -94,9 +154,15 @@ namespace TodoApi.Controllers
 
             var item = await _context.TodoItems.FindAsync(id);
 
+            if (item == null) 
+            {
+                return NotFound();
+            }
+
             foreach (var (key, value) in normalizedUpdates)
             {
-                if (!value.HasValue) {
+                if (!value.HasValue) 
+                {
                     return BadRequest();
                 }
 
@@ -127,19 +193,21 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        // DELETE: api/Todo/5
+        /// <summary>
+        /// Deletes a specific ToDo Item.
+        /// </summary>
+        /// <param name="id"></param>
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> DeleteTodoItem(int id)
         {
-            var todoItem = await _context.TodoItems.FindAsync(id);
+            var item = await _context.TodoItems.FindAsync(id);
 
-            if (todoItem == null)
+            if (item != null)
             {
-                return NoContent();
+                _context.TodoItems.Remove(item);
+                await _context.SaveChangesAsync();
             }
-
-            _context.TodoItems.Remove(todoItem);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }

@@ -3,14 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
-using TodoList;
 using TodoList.DataAccess;
 
 
-namespace TodoApi.Controllers
+namespace TodoList.Api
 {
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -75,7 +72,7 @@ namespace TodoApi.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<TodoItem>> PostTodoItem(TodoItem item)
+        public async Task<ActionResult<TodoItem>> CreateTodoItem(TodoItem item)
         {
             try {
                 _context.TodoItems.Add(item);
@@ -111,7 +108,7 @@ namespace TodoApi.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateTodoItem(int id, TodoItem item)
+        public async Task<IActionResult> ReplaceTodoItem(int id, TodoItem item)
         {
             if (id != item.Id)
             {
@@ -142,16 +139,9 @@ namespace TodoApi.Controllers
         /// <response code="204">If the update was successful</response>
         [HttpPatch("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateTodoItem(int id, Dictionary<string, object> updates)
+        public async Task<IActionResult> UpdateTodoItem(int id, TodoItemUpdates updates)
         {
-            var normalizedUpdates = new Dictionary<string, JsonElement?>(updates.Select(kvp => KeyValuePair.Create(kvp.Key.ToLower(), (JsonElement?)kvp.Value)));
-            if (normalizedUpdates.ContainsKey("id"))
-            {
-                return BadRequest();
-            }
-
             var item = await _context.TodoItems.FindAsync(id);
 
             if (item == null) 
@@ -159,32 +149,11 @@ namespace TodoApi.Controllers
                 return NotFound();
             }
 
-            foreach (var (key, value) in normalizedUpdates)
-            {
-                if (!value.HasValue) 
-                {
-                    return BadRequest();
-                }
+            updates.ApplyTo(item);
 
-                switch(key) {
-                    case "name":
-                        if (value?.ValueKind == JsonValueKind.String)
-                        {
-                            item.Name = value.Value.ToString();
-                            break;
-                        }
-                        
-                        return BadRequest();
-                    case "iscomplete":
-                        if (value.HasValue && value.Value.TryGetBoolean(out var b)) {
-                            item.IsComplete = b;
-                            break;
-                        }
-                        
-                        return BadRequest();
-                    default:
-                        return BadRequest();
-                }
+            if (id != item.Id)
+            {
+                return BadRequest();
             }
 
             _context.Entry(item).State = EntityState.Modified;
